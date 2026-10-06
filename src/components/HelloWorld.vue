@@ -3,7 +3,7 @@
     <!-- Esquerda: Card do Jogo -->
     <div class="game-section">
       <div class="game-card" @click="playGame">
-        <img class="tiger-image" src="/home/felipegarcia/litteTigerPoject/src/assets/tigger.jpg" />
+        <img class="tiger-image" src="../assets/tigger.jpg" alt="Tigre" />
       </div>
     </div>
     
@@ -28,12 +28,12 @@
       <div class="divider"></div>
       
       <div class="profile-grid">
-        <!-- Skeleton loading enquanto carrega -->
+        <!-- Skeleton loading enquanto busca o JSON da planilha -->
         <template v-if="isLoadingProfiles">
-          <div class="profile-circle skeleton" v-for="n in 10" :key="'skeleton-' + n"></div>
+          <div class="profile-circle skeleton" v-for="n in 6" :key="'skeleton-' + n"></div>
         </template>
 
-        <!-- Perfis carregados -->
+        <!-- Perfis carregados da Planilha (Apenas Ícone + Nome) -->
         <template v-else>
           <button
             class="profile-circle"
@@ -44,7 +44,8 @@
             :title="profile.name"
           >
             <img :src="profile.avatar" :alt="profile.name" />
-            <span class="profile-level">Nv.{{ profile.level }}</span>
+            <!-- Etiqueta mostrando apenas o Nome do integrante -->
+            <span class="profile-level">{{ profile.name }}</span>
           </button>
 
           <!-- Botão para adicionar novo perfil -->
@@ -54,12 +55,12 @@
         </template>
       </div>
 
-      <!-- Info do perfil selecionado -->
+      <!-- Info do perfil selecionado (Simplificado: mostra apenas o Nome!) -->
       <div class="profile-info" v-if="activeProfile">
         <img :src="activeProfile.avatar" :alt="activeProfile.name" class="profile-info-avatar" />
         <div>
           <p class="profile-info-name">{{ activeProfile.name }}</p>
-          <p class="profile-info-meta">Nível {{ activeProfile.level }} · {{ activeProfile.points }} pts</p>
+          <p class="profile-info-meta">Integrante da Equipa</p>
         </div>
         <button class="remove-btn" @click="removeProfile(activeProfile.id)" title="Remover perfil">✕</button>
       </div>
@@ -69,46 +70,41 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+// Importamos a função que busca o JSON da aba 'perfil' da planilha
+import { buscarPerfisDaPlanilha } from '../services/planilhaService.js'
 
 // ────────────────────────────────────────
 // Estado
 // ────────────────────────────────────────
-const progress       = ref(38)
-const isMenuOpen     = ref(false)
+const progress          = ref(38)
+const isMenuOpen        = ref(false)
 const isLoadingProfiles = ref(true)
 const selectedProfile   = ref(null)
 const profiles          = ref([])
 
-// Perfil ativo (computed a partir da lista)
+// Descobre qual é o perfil que está selecionado no momento
 const activeProfile = computed(() =>
   profiles.value.find(p => p.id === selectedProfile.value) ?? null
 )
 
 // ────────────────────────────────────────
-// Helpers
-// ────────────────────────────────────────
-const NAMES  = ['Ana', 'Bruno', 'Carol', 'Diego', 'Eva', 'Felipe', 'Gabi', 'Hugo', 'Iris', 'João', 'Kali', 'Leo']
-const STYLES = ['avataaars', 'micah', 'bottts', 'lorelei', 'notionists']
-
-const makeProfile = (id) => ({
-  id,
-  name:   NAMES[id % NAMES.length],
-  level:  Math.floor(Math.random() * 50) + 1,
-  points: Math.floor(Math.random() * 10000),
-  avatar: `https://api.dicebear.com/7.x/${STYLES[id % STYLES.length]}/svg?seed=${id * 137}`,
-})
-
-// ────────────────────────────────────────
-// Carregamento inicial (simula fetch de API)
+// Carregamento inicial (Busca o JSON da Planilha)
 // ────────────────────────────────────────
 const loadProfiles = async () => {
   isLoadingProfiles.value = true
-  await new Promise(r => setTimeout(r, 1200)) // simula latência de rede
-  profiles.value = Array.from({ length: 10 }, (_, i) => makeProfile(i + 1))
-  selectedProfile.value = profiles.value[0].id
+  
+  // Chama o serviço em JavaScript que criámos em src/services/planilhaService.js
+  profiles.value = await buscarPerfisDaPlanilha()
+  
+  // Se vieram perfis da planilha, seleciona o primeiro automaticamente (Mauro)
+  if (profiles.value.length > 0) {
+    selectedProfile.value = profiles.value[0].id
+  }
+  
   isLoadingProfiles.value = false
 }
 
+// Assim que a tela é montada, chama a função loadProfiles
 onMounted(loadProfiles)
 
 // ────────────────────────────────────────
@@ -116,12 +112,15 @@ onMounted(loadProfiles)
 // ────────────────────────────────────────
 const selectProfile = (profile) => {
   selectedProfile.value = profile.id
-  progress.value = Math.min(Math.round(profile.points / 100), 100)
 }
 
 const addProfile = () => {
   const newId = Date.now()
-  profiles.value.push(makeProfile(newId))
+  profiles.value.push({
+    id: newId,
+    name: `Novo`,
+    avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${newId}`
+  })
 }
 
 const removeProfile = (id) => {
@@ -156,7 +155,6 @@ const playGame = () => {
   flex: 1;
   display: flex;
   gap: 32px;
-  /* Gradiente de floresta escura */
   background:
     linear-gradient(160deg, #0d2b0e 0%, #1a3a1c 40%, #0f2210 100%);
   padding: 40px;
@@ -168,7 +166,6 @@ const playGame = () => {
   overflow: hidden;
 }
 
-/* Efeito de luz de selva no fundo */
 .app-container::before {
   content: '';
   position: absolute;
@@ -179,7 +176,6 @@ const playGame = () => {
   pointer-events: none;
 }
 
-/* === Seção Esquerda === */
 .game-section {
   flex: 0 0 320px;
   position: relative;
@@ -193,7 +189,6 @@ const playGame = () => {
   display: flex;
   cursor: pointer;
   transition: transform 0.4s ease, box-shadow 0.4s ease;
-  /* Borda com tom dourado/âmbar — pele de tigre */
   border: 3px solid #8b6914;
   box-shadow:
     0 0 0 1px rgba(200, 160, 40, 0.3),
@@ -223,7 +218,6 @@ const playGame = () => {
   transform: scale(1.07);
 }
 
-/* === Seção Central === */
 .progress-section {
   display: flex;
   flex-direction: column;
@@ -237,7 +231,6 @@ const playGame = () => {
   width: 28px;
   flex: 1;
   min-height: 340px;
-  /* Tronco de bambu */
   background: linear-gradient(180deg, #1c3a10 0%, #0d2209 100%);
   border-radius: 14px;
   border: 2px solid #2d5a1b;
@@ -252,7 +245,6 @@ const playGame = () => {
   overflow: hidden;
 }
 
-/* Marcações de bambu */
 .progress-container::before {
   content: '';
   position: absolute;
@@ -269,7 +261,6 @@ const playGame = () => {
 
 .progress-bar {
   width: 100%;
-  /* Verde floresta vibrante */
   background: linear-gradient(to top, #1db954, #57e389, #a8f56e);
   border-radius: 10px;
   transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
@@ -284,7 +275,6 @@ const playGame = () => {
   letter-spacing: 1px;
 }
 
-/* === Seção Direita === */
 .right-section {
   flex: 1;
   display: flex;
@@ -329,7 +319,6 @@ const playGame = () => {
 .hamburger.active span:nth-child(2) { opacity: 0; }
 .hamburger.active span:nth-child(3) { transform: translateY(-8px) rotate(-45deg); }
 
-/* Divisor com tom de folhagem */
 .divider {
   height: 1px;
   background: linear-gradient(90deg, transparent, #3d8b2a, transparent);
@@ -337,7 +326,6 @@ const playGame = () => {
   opacity: 0.7;
 }
 
-/* === Grid de Perfis === */
 .profile-grid {
   display: grid;
   grid-template-columns: repeat(5, 70px);
@@ -348,7 +336,6 @@ const playGame = () => {
   position: relative;
   width: 70px;
   height: 70px;
-  /* Borda com tom de folha */
   border: 3px solid rgba(80, 150, 40, 0.4);
   border-radius: 50%;
   background: #0d2209;
@@ -364,7 +351,6 @@ const playGame = () => {
   box-shadow: 0 0 12px rgba(100, 200, 50, 0.35);
 }
 
-/* Selecionado — brilho dourado de selva */
 .profile-circle.selected {
   border-color: #c8a028;
   transform: scale(1.12);
@@ -382,7 +368,6 @@ const playGame = () => {
   display: block;
 }
 
-/* Badge de nível */
 .profile-level {
   position: absolute;
   bottom: -6px;
@@ -400,7 +385,6 @@ const playGame = () => {
   letter-spacing: 0.5px;
 }
 
-/* Skeleton — shimmer verde */
 .skeleton {
   background: linear-gradient(90deg, #142e0d 25%, #1e4a14 50%, #142e0d 75%);
   background-size: 200% 100%;
@@ -413,7 +397,6 @@ const playGame = () => {
   100% { background-position: -200% 0; }
 }
 
-/* Botão de adicionar perfil */
 .add-profile {
   border: 2px dashed rgba(100, 180, 50, 0.4);
   background: rgba(20, 60, 10, 0.5);
@@ -437,7 +420,6 @@ const playGame = () => {
   color: #a8e063;
 }
 
-/* Card info do perfil selecionado */
 .profile-info {
   display: flex;
   align-items: center;
@@ -493,4 +475,3 @@ const playGame = () => {
   background: rgba(220, 80, 40, 0.12);
 }
 </style>
-
